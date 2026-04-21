@@ -16,7 +16,8 @@
         .mic-btn svg { fill: var(--main-green); width: 80px; height: 80px; transition: 0.3s; }
         .listening svg { fill: var(--accent-red); transform: scale(1.1); }
 
-        .status-text { margin-top: 25px; font-size: 16px; color: var(--main-green); font-weight: 300; min-height: 24px; text-align: center; padding: 0 20px; }
+        .status-text { margin-top: 25px; font-size: 16px; color: var(--main-green); font-weight: 300; min-height: 50px; text-align: center; padding: 0 20px; max-width: 80%; line-height: 1.5; }
+        .error-text { color: var(--accent-red); font-weight: bold; }
         
         .controls { margin-top: 40px; display: flex; gap: 20px; }
         .btn { padding: 12px 25px; border: 1px solid var(--main-green); background: transparent; color: var(--main-green); cursor: pointer; border-radius: 30px; font-size: 14px; transition: 0.3s; }
@@ -44,7 +45,6 @@
         const statusDisplay = document.getElementById('status-display');
         const radarUI = document.getElementById('radar-ui');
 
-        // تبديل الرادارات
         document.getElementById('eco-btn').onclick = () => switchRadar('eco');
         document.getElementById('pol-btn').onclick = () => switchRadar('pol');
 
@@ -52,10 +52,10 @@
             currentRadar = type;
             document.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
             document.getElementById(type === 'eco' ? 'eco-btn' : 'pol-btn').classList.add('active');
+            statusDisplay.className = 'status-text';
             statusDisplay.innerText = `تم تنشيط ${type === 'eco' ? 'المحلل الاقتصادي' : 'المحلل السياسي'}`;
         }
 
-        // إعدادات التعرف على الصوت
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         const recognition = new SpeechRecognition();
         recognition.lang = 'ar-SA';
@@ -68,65 +68,73 @@
         recognition.onstart = () => {
             isListening = true;
             radarUI.classList.add('listening');
+            statusDisplay.className = 'status-text';
             statusDisplay.innerText = "جاري الاستماع إليك...";
         };
 
         recognition.onresult = async (event) => {
             const userText = event.results[0][0].transcript;
-            statusDisplay.innerText = `حللت طلبك: "${userText}"... جاري المسح الآن`;
             
             try {
-                // 1. جلب سياق الأخبار الحية بناءً على سؤال المستخدم
+                // الخطوة 1
+                statusDisplay.innerText = `1. تم استلام سؤالك. جاري إرسال العناكب لجلب الأخبار...`;
                 const newsResponse = await fetch(`/api/news?q=${encodeURIComponent(userText)}`);
+                if (!newsResponse.ok) throw new Error("فشل العناكب في الوصول للأخبار.");
                 const newsContext = await newsResponse.text();
 
-                // 2. إرسال السؤال والسياق لـ Gemini
+                // الخطوة 2
+                statusDisplay.innerText = `2. تم جلب الأخبار. جاري إرسالها لمحلل Gemini...`;
                 const chatResponse = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         message: userText,
-                        context: newsContext.substring(0, 3000), // نرسل أول 3000 حرف فقط لضمان السرعة
-                        radarType: currentRadar === 'eco' ? 'اقتصادي/ذهب' : 'سياسي/عاجل'
+                        context: newsContext.substring(0, 3000),
+                        radarType: currentRadar === 'eco' ? 'اقتصادي' : 'سياسي'
                     })
                 });
 
-                const chatData = await chatResponse.json();
-                
-                // إذا كان هناك خطأ من Gemini نفسه سيكتبه
-                if(chatData.error) {
-                    throw new Error("خطأ من Gemini: " + chatData.error.message);
+                if (!chatResponse.ok) {
+                    const errText = await chatResponse.text();
+                    throw new Error("سيرفر Gemini يرفض الطلب: " + errText);
                 }
 
-                const aiResponse = chatData.candidates[0].content.parts[0].text;
-                
-                // نطبع الرد كنص على الشاشة قبل نطقه لنتأكد أنه وصل
-                statusDisplay.innerText = "الرادار: " + aiResponse.substring(0, 50) + "..."; 
+                const chatData = await chatResponse.json();
+                if (chatData.error) throw new Error("خطأ من جوجل: " + chatData.error.message);
 
-                // 3. نطق الرد بصوت بشري
+                const aiResponse = chatData.candidates[0].content.parts[0].text;
+
+                // الخطوة 3
+                statusDisplay.innerText = "3. المحلل يتحدث الآن...";
                 speak(aiResponse);
 
             } catch (error) {
-                // هذا السطر سيفضح المشكلة ويكتبها على الشاشة
-                statusDisplay.innerText = "🚨 خطأ تقني: " + error.message;
-                stopUI();
+                // هنا سيتوقف ويعرض لك الخطأ الحقيقي ولن يمسحه فوراً!
+                radarUI.classList.remove('listening');
+                statusDisplay.className = 'status-text error-text';
+                statusDisplay.innerText = "🚨 " + error.message;
+                setTimeout(stopUI, 8000); // سينتظر 8 ثوان لتقرأ الخطأ
             }
         };
 
         function speak(text) {
             radarUI.classList.remove('listening');
             radarUI.classList.add('speaking');
-            statusDisplay.innerText = "الرادار يتحدث الآن...";
-
+            
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = 'ar-SA';
             utterance.onend = stopUI;
+            utterance.onerror = (e) => {
+                statusDisplay.innerText = "🚨 خطأ في نطق الصوت من المتصفح.";
+                setTimeout(stopUI, 5000);
+            };
             window.speechSynthesis.speak(utterance);
         }
 
         function stopUI() {
             isListening = false;
             radarUI.classList.remove('listening', 'speaking');
+            statusDisplay.className = 'status-text';
             statusDisplay.innerText = "الرادار جاهز لمسح جديد...";
         }
     </script>
