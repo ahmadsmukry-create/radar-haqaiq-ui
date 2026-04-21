@@ -1,31 +1,43 @@
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    
+
+    // 1. محرك جلب الأخبار (العناكب)
     if (url.pathname === "/api/news") {
       const topic = url.searchParams.get('q') || 'آخر الأخبار';
+      let sources = topic.includes("gold") || topic.includes("ذهب") ? 
+        " (site:reuters.com OR site:investing.com OR site:kitco.com)" : 
+        " (site:aljazeera.net OR site:bbc.com OR site:apnews.com)";
       
-      // منطق التخصيص الذكي للمصادر
-      let sources = "";
-      if (topic.includes("gold") || topic.includes("ذهب") || topic.includes("اقتصاد")) {
-        sources = " (site:reuters.com OR site:bloomberg.com OR site:investing.com OR site:kitco.com)";
-      } else {
-        sources = " (site:aljazeera.net OR site:reuters.com OR site:apnews.com OR site:bbc.com)";
-      }
-
-      const fullQuery = encodeURIComponent(topic + sources);
-      const rssUrl = `https://news.google.com/rss/search?q=${fullQuery}&hl=ar&gl=SA&ceid=SA:ar`;
-
-      try {
-        const response = await fetch(rssUrl);
-        const xmlData = await response.text();
-        return new Response(xmlData, {
-          headers: { "content-type": "application/xml;charset=UTF-8", "Access-Control-Allow-Origin": "*" },
-        });
-      } catch (e) {
-        return new Response("Error: " + e.message, { status: 500 });
-      }
+      const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(topic + sources)}&hl=ar&gl=SA&ceid=SA:ar`;
+      const response = await fetch(rssUrl);
+      const xmlData = await response.text();
+      return new Response(xmlData, { headers: { "content-type": "application/xml;charset=UTF-8", "Access-Control-Allow-Origin": "*" } });
     }
+
+    // 2. محرك التحليل الذكي (الربط مع Gemini باستخدام المفتاح المخفي)
+    if (url.pathname === "/api/chat" && request.method === "POST") {
+      const { message, context, radarType } = await request.json();
+      
+      // دستور العمل الصارم (الذي اتفقنا عليه لمنع الهلوسة)
+      const systemPrompt = `أنت محلل أزمات في "رادار الحقائق". نوع الرادار الحالي: ${radarType}. 
+      استخدم المعطيات التالية فقط للإجابة: ${context}. 
+      إذا سُئلت عن شيء غير موجود في المعطيات أو ليس له تداول حي، اعتذر بمهنية وقل أن البيانات غير متوفرة حالياً لتجنب التضليل. لا تخمن أبداً.`;
+
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${env.GEMINI_API_KEY}`;
+      
+      const geminiResponse = await fetch(geminiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: `${systemPrompt}\n\nسؤال الزائر: ${message}` }] }]
+        })
+      });
+
+      const data = await geminiResponse.json();
+      return new Response(JSON.stringify(data), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
+    }
+
     return env.ASSETS.fetch(request);
   },
 };
