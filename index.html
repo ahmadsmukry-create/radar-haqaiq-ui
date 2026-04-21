@@ -76,19 +76,23 @@
             const userText = event.results[0][0].transcript;
             
             try {
-                // 🧠 مصفاة الاستخبارات: إزالة كلمات الدردشة للبحث بنظام "القنص"
-                const stopWords = ['ماذا', 'جرى', 'حدث', 'يحدث', 'في', 'اليوم', 'عن', 'ما', 'هي', 'أخبار', 'هل', 'يوجد', 'جديد', 'كيف', 'وضع', 'اعطني', 'اخبار', 'الآن', 'الان', 'كم', 'سعر', 'ماهو', 'ماهي'];
+                // 🧠 القاموس الاستخباراتي: تحويل كلام الزائر لمصطلحات تفهمها وكالات الأنباء
+                let searchKeywords = userText;
                 
-                // استخراج الكلمات المهمة فقط
-                let searchKeywords = userText.split(' ')
-                    .filter(word => !stopWords.includes(word))
-                    .join(' ').trim();
+                if (searchKeywords.includes('اونصة') || searchKeywords.includes('أونصة') || searchKeywords.includes('ذهب')) {
+                    searchKeywords = 'أسعار الذهب العالمية عاجل';
+                } else if (searchKeywords.includes('هرمز')) {
+                    searchKeywords = 'مضيق هرمز عاجل';
+                } else {
+                    // الفلتر العادي لباقي الأسئلة
+                    const stopWords = ['ماذا', 'جرى', 'حدث', 'يحدث', 'في', 'اليوم', 'عن', 'ما', 'هي', 'أخبار', 'هل', 'يوجد', 'جديد', 'كيف', 'وضع', 'اعطني', 'اخبار', 'الآن', 'الان', 'كم', 'سعر', 'ماهو', 'ماهي', 'امس', 'أمس'];
+                    searchKeywords = searchKeywords.split(' ').filter(word => !stopWords.includes(word)).join(' ').trim();
+                }
                 
-                // كإجراء احتياطي، إذا مسح الفلتر كل شيء، نعود للنص الأصلي
-                if (!searchKeywords) searchKeywords = userText;
+                if (!searchKeywords) searchKeywords = 'أهم الأخبار العاجلة';
 
-                // الخطوة 1: انظر كيف سيكتب لك على الشاشة الكلمات الصافية التي يبحث عنها
-                statusDisplay.innerText = `1. جاري قنص الأخبار العاجلة عن: "${searchKeywords}"...`;
+                // الخطوة 1: انظر ماذا سيبحث الرادار!
+                statusDisplay.innerText = `1. جاري قنص الأخبار عن: "${searchKeywords}"...`;
                 const newsResponse = await fetch(`/api/news?q=${encodeURIComponent(searchKeywords)}`);
                 if (!newsResponse.ok) throw new Error("فشل العناكب في الوصول للأخبار.");
                 const xmlText = await newsResponse.text();
