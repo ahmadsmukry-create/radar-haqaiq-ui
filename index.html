@@ -77,27 +77,32 @@
             
             try {
                 // الخطوة 1
-                statusDisplay.innerText = `1. تم استلام سؤالك. جاري إرسال العناكب لجلب الأخبار...`;
+                statusDisplay.innerText = `1. جاري إرسال العناكب للبحث عن: "${userText}"...`;
                 const newsResponse = await fetch(`/api/news?q=${encodeURIComponent(userText)}`);
                 if (!newsResponse.ok) throw new Error("فشل العناكب في الوصول للأخبار.");
-                const newsContext = await newsResponse.text();
+                const xmlText = await newsResponse.text();
+
+                // 🚨 مصفاة الأخبار الذكية: نستخرج العناوين فقط من فوضى الأكواد
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+                const newsItems = Array.from(xmlDoc.querySelectorAll("item title"));
+                
+                // نأخذ أهم 15 خبر فقط وندمجها كنص صافي
+                const cleanNewsContext = newsItems.slice(0, 15).map(t => t.textContent).join(" | ");
 
                 // الخطوة 2
-                statusDisplay.innerText = `2. تم جلب الأخبار. جاري إرسالها لمحلل Gemini...`;
+                statusDisplay.innerText = `2. تم جلب البيانات العاجلة. جاري التحليل...`;
                 const chatResponse = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         message: userText,
-                        context: newsContext.substring(0, 3000),
+                        context: cleanNewsContext, // نرسل الأخبار الصافية فقط
                         radarType: currentRadar === 'eco' ? 'اقتصادي' : 'سياسي'
                     })
                 });
 
-                if (!chatResponse.ok) {
-                    const errText = await chatResponse.text();
-                    throw new Error("سيرفر Gemini يرفض الطلب: " + errText);
-                }
+                if (!chatResponse.ok) throw new Error("سيرفر الذكاء الاصطناعي يرفض الطلب.");
 
                 const chatData = await chatResponse.json();
                 if (chatData.error) throw new Error("خطأ من جوجل: " + chatData.error.message);
@@ -109,11 +114,12 @@
                 speak(aiResponse);
 
             } catch (error) {
-                // هنا سيتوقف ويعرض لك الخطأ الحقيقي ولن يمسحه فوراً!
                 radarUI.classList.remove('listening');
                 statusDisplay.className = 'status-text error-text';
                 statusDisplay.innerText = "🚨 " + error.message;
-                setTimeout(stopUI, 8000); // سينتظر 8 ثوان لتقرأ الخطأ
+                setTimeout(stopUI, 8000); 
+            }
+        }; سينتظر 8 ثوان لتقرأ الخطأ
             }
         };
 
