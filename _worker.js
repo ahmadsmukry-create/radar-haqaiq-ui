@@ -15,16 +15,16 @@ export default {
       return new Response(xmlData, { headers: { "content-type": "application/xml;charset=UTF-8", "Access-Control-Allow-Origin": "*" } });
     }
 
-    // 2. محرك التحليل الذكي (الربط مع Gemini باستخدام المفتاح المخفي)
+    // 2. محرك التحليل الذكي 
     if (url.pathname === "/api/chat" && request.method === "POST") {
       const { message, context, radarType } = await request.json();
       
-      // دستور العمل الصارم (الذي اتفقنا عليه لمنع الهلوسة)
       const systemPrompt = `أنت محلل أزمات في "رادار الحقائق". نوع الرادار الحالي: ${radarType}. 
-      استخدم المعطيات التالية فقط للإجابة: ${context}. 
-      إذا سُئلت عن شيء غير موجود في المعطيات أو ليس له تداول حي، اعتذر بمهنية وقل أن البيانات غير متوفرة حالياً لتجنب التضليل. لا تخمن أبداً.`;
+      استخدم المعطيات التالية فقط للإجابة بوضوح واختصار: ${context}. 
+      إذا سُئلت عن شيء غير موجود في المعطيات، اعتذر بمهنية لتجنب التضليل. لا تخمن أبداً.`;
 
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${env.GEMINI_API_KEY}`;
+      // 🚨 التحديث هنا: تم ربط المحرك بـ Gemini 2.5 Flash
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${env.GEMINI_API_KEY}`;
       
       const geminiResponse = await fetch(geminiUrl, {
         method: "POST",
