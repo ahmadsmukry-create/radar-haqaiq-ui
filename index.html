@@ -76,13 +76,24 @@
             const userText = event.results[0][0].transcript;
             
             try {
-                // الخطوة 1
-                statusDisplay.innerText = `1. جاري إرسال العناكب للبحث عن: "${userText}"...`;
-                const newsResponse = await fetch(`/api/news?q=${encodeURIComponent(userText)}`);
+                // 🧠 مصفاة الاستخبارات: إزالة كلمات الدردشة للبحث بنظام "القنص"
+                const stopWords = ['ماذا', 'جرى', 'حدث', 'يحدث', 'في', 'اليوم', 'عن', 'ما', 'هي', 'أخبار', 'هل', 'يوجد', 'جديد', 'كيف', 'وضع', 'اعطني', 'اخبار', 'الآن', 'الان', 'كم', 'سعر', 'ماهو', 'ماهي'];
+                
+                // استخراج الكلمات المهمة فقط
+                let searchKeywords = userText.split(' ')
+                    .filter(word => !stopWords.includes(word))
+                    .join(' ').trim();
+                
+                // كإجراء احتياطي، إذا مسح الفلتر كل شيء، نعود للنص الأصلي
+                if (!searchKeywords) searchKeywords = userText;
+
+                // الخطوة 1: انظر كيف سيكتب لك على الشاشة الكلمات الصافية التي يبحث عنها
+                statusDisplay.innerText = `1. جاري قنص الأخبار العاجلة عن: "${searchKeywords}"...`;
+                const newsResponse = await fetch(`/api/news?q=${encodeURIComponent(searchKeywords)}`);
                 if (!newsResponse.ok) throw new Error("فشل العناكب في الوصول للأخبار.");
                 const xmlText = await newsResponse.text();
 
-                // مصفاة الأخبار الذكية: نستخرج العناوين فقط من فوضى الأكواد
+                // مصفاة الأخبار: نستخرج العناوين فقط من فوضى الأكواد
                 const parser = new DOMParser();
                 const xmlDoc = parser.parseFromString(xmlText, "text/xml");
                 const newsItems = Array.from(xmlDoc.querySelectorAll("item title"));
@@ -91,13 +102,13 @@
                 const cleanNewsContext = newsItems.slice(0, 15).map(t => t.textContent).join(" | ");
 
                 // الخطوة 2
-                statusDisplay.innerText = `2. تم جلب البيانات العاجلة. جاري التحليل...`;
+                statusDisplay.innerText = `2. تم جلب البيانات. جاري تحليل الأحداث...`;
                 const chatResponse = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        message: userText,
-                        context: cleanNewsContext,
+                        message: userText, // نرسل لـ Gemini سؤالك الكامل ليفهم سياق حديثك
+                        context: cleanNewsContext, // ونرسل له الأخبار الصافية التي قنصناها
                         radarType: currentRadar === 'eco' ? 'اقتصادي' : 'سياسي'
                     })
                 });
@@ -119,7 +130,7 @@
                 statusDisplay.innerText = "🚨 " + error.message;
                 setTimeout(stopUI, 8000); 
             }
-        };
+    };
 
         function speak(text) {
             radarUI.classList.remove('listening');
