@@ -82,7 +82,7 @@
                 if (!newsResponse.ok) throw new Error("فشل العناكب في الوصول للأخبار.");
                 const xmlText = await newsResponse.text();
 
-                // 🚨 مصفاة الأخبار الذكية: نستخرج العناوين فقط من فوضى الأكواد
+                // مصفاة الأخبار الذكية: نستخرج العناوين فقط من فوضى الأكواد
                 const parser = new DOMParser();
                 const xmlDoc = parser.parseFromString(xmlText, "text/xml");
                 const newsItems = Array.from(xmlDoc.querySelectorAll("item title"));
@@ -97,7 +97,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         message: userText,
-                        context: cleanNewsContext, // نرسل الأخبار الصافية فقط
+                        context: cleanNewsContext,
                         radarType: currentRadar === 'eco' ? 'اقتصادي' : 'سياسي'
                     })
                 });
@@ -118,8 +118,6 @@
                 statusDisplay.className = 'status-text error-text';
                 statusDisplay.innerText = "🚨 " + error.message;
                 setTimeout(stopUI, 8000); 
-            }
-        }; سينتظر 8 ثوان لتقرأ الخطأ
             }
         };
 
