@@ -3,53 +3,122 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>رادار الحقائق التفاعلي</title>
+    <title>رادار الحقائق التفاعلي 2026</title>
     <style>
-        :root { --main-green: #00ff00; --dark-bg: #0a0a0a; }
+        :root { --main-green: #00ff00; --dark-bg: #0a0a0a; --accent-red: #ff4444; }
         body { background-color: var(--dark-bg); color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
         
-        /* تأثير النبض للرادار */
-        .radar-circle { width: 200px; height: 200px; border: 2px solid var(--main-green); border-radius: 50%; position: relative; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 20px rgba(0, 255, 0, 0.2); }
-        .radar-circle::after { content: ''; width: 100%; height: 100%; border: 1px solid var(--main-green); border-radius: 50%; position: absolute; animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
+        .radar-circle { width: 220px; height: 220px; border: 2px solid var(--main-green); border-radius: 50%; position: relative; display: flex; align-items: center; justify-content: center; transition: 0.5s; }
+        .radar-circle.listening { border-color: var(--accent-red); box-shadow: 0 0 30px var(--accent-red); }
+        .radar-circle.speaking { box-shadow: 0 0 30px var(--main-green); }
 
-        .mic-btn { background: none; border: none; cursor: pointer; z-index: 10; transition: transform 0.3s; }
-        .mic-btn:active { transform: scale(0.9); }
-        .mic-btn svg { fill: var(--main-green); width: 60px; height: 60px; filter: drop-shadow(0 0 10px var(--main-green)); }
+        .mic-btn { background: none; border: none; cursor: pointer; z-index: 10; outline: none; }
+        .mic-btn svg { fill: var(--main-green); width: 80px; height: 80px; transition: 0.3s; }
+        .listening svg { fill: var(--accent-red); transform: scale(1.1); }
 
-        .status-text { margin-top: 20px; font-size: 14px; color: var(--main-green); letter-spacing: 1px; text-transform: uppercase; }
+        .status-text { margin-top: 25px; font-size: 16px; color: var(--main-green); font-weight: 300; min-height: 24px; text-align: center; padding: 0 20px; }
         
-        .controls { margin-top: 30px; display: flex; gap: 15px; }
-        .btn { padding: 10px 20px; border: 1px solid var(--main-green); background: transparent; color: var(--main-green); cursor: pointer; border-radius: 5px; transition: 0.3s; }
-        .btn.active { background: var(--main-green); color: black; font-weight: bold; }
+        .controls { margin-top: 40px; display: flex; gap: 20px; }
+        .btn { padding: 12px 25px; border: 1px solid var(--main-green); background: transparent; color: var(--main-green); cursor: pointer; border-radius: 30px; font-size: 14px; transition: 0.3s; }
+        .btn.active { background: var(--main-green); color: black; font-weight: bold; box-shadow: 0 0 15px var(--main-green); }
     </style>
 </head>
 <body>
 
-    <div class="radar-circle">
-        <button class="mic-btn" id="start-btn">
-            <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+    <div class="radar-circle" id="radar-ui">
+        <button class="mic-btn" id="mic-btn">
+            <svg viewBox="0 0 24 24" id="mic-icon"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
         </button>
     </div>
 
-    <div class="status-text" id="status">الرادار جاهز للمسح...</div>
+    <div class="status-text" id="status-display">الرادار جاهز للمسح الاستخباراتي...</div>
 
     <div class="controls">
-        <button class="btn active" onclick="setRadar('eco')">رادار اقتصادي</button>
-        <button class="btn" onclick="setRadar('pol')">رادار سياسي</button>
+        <button class="btn active" id="eco-btn">رادار اقتصادي</button>
+        <button class="btn" id="pol-btn">رادار سياسي</button>
     </div>
 
     <script>
         let currentRadar = 'eco';
-        
-        function setRadar(type) {
+        let isListening = false;
+        const statusDisplay = document.getElementById('status-display');
+        const radarUI = document.getElementById('radar-ui');
+
+        // تبديل الرادارات
+        document.getElementById('eco-btn').onclick = () => switchRadar('eco');
+        document.getElementById('pol-btn').onclick = () => switchRadar('pol');
+
+        function switchRadar(type) {
             currentRadar = type;
             document.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
-            event.target.classList.add('active');
-            document.getElementById('status').innerText = `تم التبديل إلى ${type === 'eco' ? 'المحلل الاقتصادي' : 'المحلل السياسي'}`;
+            document.getElementById(type === 'eco' ? 'eco-btn' : 'pol-btn').classList.add('active');
+            statusDisplay.innerText = `تم تنشيط ${type === 'eco' ? 'المحلل الاقتصادي' : 'المحلل السياسي'}`;
         }
 
-        // هنا سنضيف كود Gemini Live لاحقاً
+        // إعدادات التعرف على الصوت
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'ar-SA';
+
+        document.getElementById('mic-btn').onclick = () => {
+            if (isListening) return;
+            recognition.start();
+        };
+
+        recognition.onstart = () => {
+            isListening = true;
+            radarUI.classList.add('listening');
+            statusDisplay.innerText = "جاري الاستماع إليك...";
+        };
+
+        recognition.onresult = async (event) => {
+            const userText = event.results[0][0].transcript;
+            statusDisplay.innerText = `حللت طلبك: "${userText}"... جاري المسح الآن`;
+            
+            try {
+                // 1. جلب سياق الأخبار الحية بناءً على سؤال المستخدم
+                const newsResponse = await fetch(`/api/news?q=${encodeURIComponent(userText)}`);
+                const newsContext = await newsResponse.text();
+
+                // 2. إرسال السؤال والسياق لـ Gemini
+                const chatResponse = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: userText,
+                        context: newsContext.substring(0, 3000), // نرسل أول 3000 حرف فقط لضمان السرعة
+                        radarType: currentRadar === 'eco' ? 'اقتصادي/ذهب' : 'سياسي/عاجل'
+                    })
+                });
+
+                const chatData = await chatResponse.json();
+                const aiResponse = chatData.candidates[0].content.parts[0].text;
+
+                // 3. نطق الرد بصوت بشري
+                speak(aiResponse);
+
+            } catch (error) {
+                statusDisplay.innerText = "تعذر الاتصال بالرادار، حاول مجدداً.";
+                stopUI();
+            }
+        };
+
+        function speak(text) {
+            radarUI.classList.remove('listening');
+            radarUI.classList.add('speaking');
+            statusDisplay.innerText = "الرادار يتحدث الآن...";
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'ar-SA';
+            utterance.onend = stopUI;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function stopUI() {
+            isListening = false;
+            radarUI.classList.remove('listening', 'speaking');
+            statusDisplay.innerText = "الرادار جاهز لمسح جديد...";
+        }
     </script>
 </body>
 </html>
