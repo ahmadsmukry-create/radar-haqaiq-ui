@@ -92,13 +92,23 @@
                 });
 
                 const chatData = await chatResponse.json();
+                
+                // إذا كان هناك خطأ من Gemini نفسه سيكتبه
+                if(chatData.error) {
+                    throw new Error("خطأ من Gemini: " + chatData.error.message);
+                }
+
                 const aiResponse = chatData.candidates[0].content.parts[0].text;
+                
+                // نطبع الرد كنص على الشاشة قبل نطقه لنتأكد أنه وصل
+                statusDisplay.innerText = "الرادار: " + aiResponse.substring(0, 50) + "..."; 
 
                 // 3. نطق الرد بصوت بشري
                 speak(aiResponse);
 
             } catch (error) {
-                statusDisplay.innerText = "تعذر الاتصال بالرادار، حاول مجدداً.";
+                // هذا السطر سيفضح المشكلة ويكتبها على الشاشة
+                statusDisplay.innerText = "🚨 خطأ تقني: " + error.message;
                 stopUI();
             }
         };
